@@ -1,0 +1,6 @@
+Handle,Title,Body (HTML),Vendor,Type,Tags,Published,Image Src,Image Position,Variant Image
+test-sneakers,حذاء رياضي أسود,وصف المنتج,TestBrand,Shoes,shoes,TRUE,https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=800,1,
+test-sneakers,,,,,,,https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=800,2,
+test-tshirt,تيشيرت قطن أبيض,وصف المنتج,TestBrand,Clothing,clothing,TRUE,https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800,1,
+test-tshirt,,,,,,,https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=800,2,
+test-watch,ساعة يد كلاسيك,وصف المنتج,TestBrand,Watches,watches,TRUE,https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=800,1,

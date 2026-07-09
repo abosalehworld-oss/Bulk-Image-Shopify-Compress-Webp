@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+
+# Environment variables
+.env
+
+# Tool output directories
+downloaded_images/
+compressed_images/
+
+# Tool log files
+*.log
+report.txt
+
+# CSV files
+*.csv
+!test_products.csv

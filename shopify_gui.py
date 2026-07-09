@@ -15,6 +15,13 @@ import sys
 import time
 import queue
 import re
+import zipfile
+import shutil
+try:
+    import rarfile
+    RAR_AVAILABLE = True
+except ImportError:
+    RAR_AVAILABLE = False
 
 from shopify_image_downloader import (
     ShopifyCSVParser, ImageDownloader, ImageCompressor,
@@ -48,6 +55,8 @@ class ShopifyImageGUI:
         self.root.configure(bg=self.BG_DARK)
 
         # متغيرات
+        self.input_source = tk.StringVar(value="csv")
+        self.local_files = []
         self.csv_path = tk.StringVar()
         self.download_folder = tk.StringVar()
         self.compress_folder = tk.StringVar()
@@ -103,9 +112,38 @@ class ShopifyImageGUI:
             tk.Label(row, text=desc, font=("Segoe UI", 9), fg=self.TEXT_DIM,
                      bg=self.BG_CARD).pack(side=tk.RIGHT, padx=(0, 15))
 
-        # ═══ 2. ملف CSV ═══
-        self.csv_card = self._card("CSV File   -   ملف CSV من شوبيفاي")
-        self._file_row(self.csv_card, self.csv_path, "Choose CSV File   اختر ملف", self._browse_csv)
+        # ═══ 2. مصدر الإدخال وملفات الإدخال ═══
+        self.input_card = self._card("Input Source & Files   -   مصدر وملفات الإدخال")
+        
+        # اختيار المصدر
+        src_row = tk.Frame(self.input_card, bg=self.BG_CARD)
+        src_row.pack(fill=tk.X, pady=(0, 5))
+        tk.Radiobutton(src_row, text="Shopify CSV", variable=self.input_source, value="csv",
+                       font=("Segoe UI", 10, "bold"), fg=self.TEXT, bg=self.BG_CARD,
+                       selectcolor=self.BG_INPUT, activebackground=self.BG_CARD,
+                       activeforeground=self.CYAN, anchor="w",
+                       command=self._on_source_change).pack(side=tk.LEFT)
+        tk.Radiobutton(src_row, text="Direct Images / Archive (ZIP/RAR)", variable=self.input_source, value="local",
+                       font=("Segoe UI", 10, "bold"), fg=self.TEXT, bg=self.BG_CARD,
+                       selectcolor=self.BG_INPUT, activebackground=self.BG_CARD,
+                       activeforeground=self.CYAN, anchor="w",
+                       command=self._on_source_change).pack(side=tk.LEFT, padx=15)
+                       
+        tk.Frame(self.input_card, bg=self.BG_INPUT, height=1).pack(fill=tk.X, pady=5)
+
+        # صف الـ CSV
+        self.csv_row = tk.Frame(self.input_card, bg=self.BG_CARD)
+        self.csv_row.pack(fill=tk.X, pady=2)
+        self._file_row(self.csv_row, self.csv_path, "Choose CSV File   اختر ملف", self._browse_csv)
+
+        # صف الصور المباشرة
+        self.local_row = tk.Frame(self.input_card, bg=self.BG_CARD)
+        self.local_lbl = tk.Label(self.local_row, text="No files selected   لم يتم اختيار ملفات", font=("Segoe UI", 10), fg=self.TEXT_DIM, bg=self.BG_CARD, anchor="w")
+        self.local_lbl.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+        tk.Button(self.local_row, text="📂 Choose Images/ZIP   اختر الصور/ZIP", font=("Segoe UI", 9, "bold"),
+                  bg=self.ACCENT, fg="white", relief=tk.FLAT, padx=10, pady=3,
+                  cursor="hand2", command=self._browse_local,
+                  activebackground=self.ACCENT_HOVER).pack(side=tk.RIGHT)
 
         # ═══ 3. مجلدات الحفظ ═══
         self.folders_card = self._card("Save Location   -   مكان الحفظ على جهازك")
@@ -232,7 +270,24 @@ class ShopifyImageGUI:
                   activebackground=self.ACCENT_HOVER).pack(side=tk.RIGHT)
 
     # ─── أحداث ───
+    def _on_source_change(self):
+        src = self.input_source.get()
+        if src == "csv":
+            self.csv_row.pack(fill=tk.X, pady=2)
+            self.local_row.pack_forget()
+            self._on_mode_change()
+        else:
+            self.local_row.pack(fill=tk.X, pady=2)
+            self.csv_row.pack_forget()
+            self.dl_frame.pack_forget()
+            self.comp_frame.pack(fill=tk.X, pady=3)
+
     def _on_mode_change(self):
+        if self.input_source.get() == "local":
+            self.dl_frame.pack_forget()
+            self.comp_frame.pack(fill=tk.X, pady=3)
+            return
+
         m = self.mode.get()
         self.dl_frame.pack_forget()
         self.comp_frame.pack_forget()
@@ -244,6 +299,21 @@ class ShopifyImageGUI:
         elif m == "compress_only":
             self.dl_frame.pack(fill=tk.X, pady=3)
             self.comp_frame.pack(fill=tk.X, pady=3)
+
+    def _browse_local(self):
+        files = filedialog.askopenfilenames(title="Choose Images or ZIP/RAR Archive",
+                                            filetypes=[("Images & Archives", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.zip *.rar"), ("All", "*.*")])
+        if files:
+            self.local_files = list(files)
+            if len(self.local_files) == 1:
+                name = os.path.basename(self.local_files[0])
+                self.local_lbl.config(text=f"Selected: {name}")
+            else:
+                self.local_lbl.config(text=f"Selected {len(self.local_files)} files")
+            
+            base = os.path.dirname(self.local_files[0])
+            if not self.compress_folder.get():
+                self.compress_folder.set(os.path.join(base, "compressed_images"))
 
     def _browse_csv(self):
         p = filedialog.askopenfilename(title="Choose CSV File",
@@ -274,15 +344,23 @@ class ShopifyImageGUI:
 
     # ─── تشغيل / إيقاف ───
     def _start(self):
-        if not self.csv_path.get() or not os.path.exists(self.csv_path.get()):
-            messagebox.showwarning("Warning", "Choose a valid CSV file first!\nاختر ملف CSV صحيح!")
-            return
-        if not self.download_folder.get():
-            messagebox.showwarning("Warning", "Choose download folder!\nاختر مجلد التحميل!")
-            return
-        if self.mode.get() in ("download_compress", "compress_only") and not self.compress_folder.get():
-            messagebox.showwarning("Warning", "Choose compressed folder!\nاختر مجلد الضغط!")
-            return
+        if self.input_source.get() == "csv":
+            if not self.csv_path.get() or not os.path.exists(self.csv_path.get()):
+                messagebox.showwarning("Warning", "Choose a valid CSV file first!\nاختر ملف CSV صحيح!")
+                return
+            if not self.download_folder.get():
+                messagebox.showwarning("Warning", "Choose download folder!\nاختر مجلد التحميل!")
+                return
+            if self.mode.get() in ("download_compress", "compress_only") and not self.compress_folder.get():
+                messagebox.showwarning("Warning", "Choose compressed folder!\nاختر مجلد الضغط!")
+                return
+        else:
+            if not self.local_files:
+                messagebox.showwarning("Warning", "Choose images or archive first!\nاختر الصور أو الملف المضغوط!")
+                return
+            if not self.compress_folder.get():
+                messagebox.showwarning("Warning", "Choose compressed folder!\nاختر مجلد الضغط!")
+                return
 
         self.is_running = True
         self.should_stop = False
@@ -320,23 +398,107 @@ class ShopifyImageGUI:
             comp_dir = self.compress_folder.get()
             t0 = time.time()
 
-            # 1. قراءة CSV
-            self._logmsg("=" * 50, "header")
-            self._logmsg("Reading CSV...   قراءة ملف CSV...", "header")
-            self._set_status("Reading CSV...   قراءة ملف CSV...")
-            self._set_pbar(5)
+            # 1. قراءة الإدخال
+            products = {}
+            temp_extract_dir = ""
+            
+            if self.input_source.get() == "csv":
+                self._logmsg("=" * 50, "header")
+                self._logmsg("Reading CSV...   قراءة ملف CSV...", "header")
+                self._set_status("Reading CSV...   قراءة ملف CSV...")
+                self._set_pbar(5)
 
-            parser = ShopifyCSVParser(self.csv_path.get())
-            products = parser.parse()
-            if not products:
-                self._logmsg("ERROR: No products found!   لم يتم العثور على منتجات!", "error")
-                self._finish(False)
-                return
+                parser = ShopifyCSVParser(self.csv_path.get())
+                products = parser.parse()
+                if not products:
+                    self._logmsg("ERROR: No products found!   لم يتم العثور على منتجات!", "error")
+                    self._finish(False)
+                    return
 
-            total_imgs = sum(len(p['images']) for p in products.values())
-            self._logmsg(f"Found {len(products)} products, {total_imgs} images", "success")
-            self._logmsg(f"تم العثور على {len(products)} منتج و {total_imgs} صورة", "success")
-            self._set_pbar(10)
+                total_imgs = sum(len(p['images']) for p in products.values())
+                self._logmsg(f"Found {len(products)} products, {total_imgs} images", "success")
+                self._logmsg(f"تم العثور على {len(products)} منتج و {total_imgs} صورة", "success")
+                self._set_pbar(10)
+            else:
+                self._logmsg("=" * 50, "header")
+                self._logmsg("Preparing Local Files/Archive...   تحضير الملفات المباشرة...", "header")
+                self._set_status("Preparing files...   تحضير الملفات...")
+                self._set_pbar(5)
+                
+                # إعداد مجلد مؤقت
+                temp_extract_dir = os.path.join(comp_dir, "temp_extracted_images_to_compress")
+                os.makedirs(temp_extract_dir, exist_ok=True)
+                dl_dir = temp_extract_dir # to fool the rest of the script that this is the downloaded dir
+                
+                total_imgs = 0
+                
+                # نقل واستخراج الملفات
+                for fpath in self.local_files:
+                    ext = fpath.lower().split('.')[-1]
+                    if ext in ['zip']:
+                        self._logmsg(f"Extracting ZIP: {os.path.basename(fpath)}", "info")
+                        try:
+                            with zipfile.ZipFile(fpath, 'r') as z:
+                                z.extractall(temp_extract_dir)
+                        except Exception as e:
+                            self._logmsg(f"Error extracting ZIP: {e}", "error")
+                    elif ext in ['rar']:
+                        self._logmsg(f"Extracting RAR: {os.path.basename(fpath)}", "info")
+                        if RAR_AVAILABLE:
+                            try:
+                                with rarfile.RarFile(fpath) as r:
+                                    r.extractall(temp_extract_dir)
+                            except Exception as e:
+                                self._logmsg(f"Error extracting RAR: {e}", "error")
+                        else:
+                            self._logmsg("RAR support not installed. Please pip install rarfile and have UnRAR in PATH.", "error")
+                    elif ext in ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'avif']:
+                        # Create a folder for the image to act as the handle
+                        base_name = os.path.splitext(os.path.basename(fpath))[0]
+                        safe_handle = re.sub(r'[<>:"/\\|?*]', '_', base_name).strip('. ') or 'unknown'
+                        target_dir = os.path.join(temp_extract_dir, safe_handle)
+                        os.makedirs(target_dir, exist_ok=True)
+                        shutil.copy2(fpath, os.path.join(target_dir, os.path.basename(fpath)))
+                        
+                # Now scan temp_extract_dir to build products
+                for root, dirs, files in os.walk(temp_extract_dir):
+                    rel_dir = os.path.relpath(root, temp_extract_dir)
+                    # Use the first-level folder name as handle, or if it's in root, use 'direct_images'
+                    if rel_dir == '.':
+                        continue
+                    
+                    # Ensure we have images
+                    imgs = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.avif'))]
+                    if not imgs:
+                        continue
+                        
+                    parts = rel_dir.replace('\\', '/').split('/')
+                    handle = parts[0]
+                    
+                    if handle not in products:
+                        products[handle] = {
+                            'title': handle,
+                            'vendor': '',
+                            'body_html': '',
+                            'type': '',
+                            'tags': '',
+                            'olfactory_family': '',
+                            'scent': '',
+                            'season': '',
+                            'target_gender': '',
+                            'fragrance': '',
+                            'sizes': [],
+                            'images': []
+                        }
+                    total_imgs += len(imgs)
+                    
+                if not products:
+                    self._logmsg("ERROR: No valid images found in input!   لم يتم العثور على صور صحيحة!", "error")
+                    self._finish(False)
+                    return
+                    
+                self._logmsg(f"Found {len(products)} handles/folders, {total_imgs} images", "success")
+                self._set_pbar(10)
 
             if self.should_stop:
                 self._finish(False)
@@ -346,7 +508,7 @@ class ShopifyImageGUI:
             compress_stats = {}
 
             # 2. تحميل
-            if mode in ("download_compress", "download_only"):
+            if mode in ("download_compress", "download_only") and self.input_source.get() == "csv":
                 self._logmsg("\n" + "=" * 50, "header")
                 self._logmsg("Downloading images...   جاري تحميل الصور...", "header")
                 self._logmsg(f"Saving to: {dl_dir}", "info")
@@ -421,7 +583,11 @@ class ShopifyImageGUI:
 
                 if SEO_AVAILABLE:
                     # ضغط مع SEO
-                    csv_dir = os.path.dirname(self.csv_path.get())
+                    if self.input_source.get() == "csv":
+                        csv_dir = os.path.dirname(self.csv_path.get())
+                    else:
+                        csv_dir = comp_dir
+                        
                     seo_log_path = os.path.join(csv_dir, 'seo_optimization_log.csv')
                     seo_logger_inst = SEOLogger(log_path=seo_log_path)
 
@@ -450,14 +616,17 @@ class ShopifyImageGUI:
                     self._logmsg(f"  {seo_logger_inst.get_summary()}", "info")
 
                     # تصدير CSV محسّن
-                    seo_csv_path = os.path.join(csv_dir, 'products_seo_optimized.csv')
-                    exporter = ShopifyCSVExporter(
-                        original_csv=self.csv_path.get(),
-                        seo_map=compressor.seo_map,
-                        output_path=seo_csv_path
-                    )
-                    exporter.export()
-                    self._logmsg(f"  SEO CSV saved: {seo_csv_path}", "success")
+                    if self.input_source.get() == "csv":
+                        seo_csv_path = os.path.join(csv_dir, 'products_seo_optimized.csv')
+                        exporter = ShopifyCSVExporter(
+                            original_csv=self.csv_path.get(),
+                            seo_map=compressor.seo_map,
+                            output_path=seo_csv_path
+                        )
+                        exporter.export()
+                        self._logmsg(f"  SEO CSV saved: {seo_csv_path}", "success")
+                    else:
+                        self._logmsg("  SEO applied to local files. (No CSV to export)", "success")
 
                     compress_stats = compress_stats_result
                 else:
@@ -502,10 +671,20 @@ class ShopifyImageGUI:
 
             # 4. تقرير
             self._set_pbar(95)
-            rdir = os.path.dirname(self.csv_path.get())
+            if self.input_source.get() == "csv":
+                rdir = os.path.dirname(self.csv_path.get())
+            else:
+                rdir = comp_dir
             rpath = os.path.join(rdir, "report.txt")
             ReportGenerator(output_path=rpath).generate(products, download_stats, compress_stats, {})
             self._logmsg(f"\nReport saved: {rpath}", "info")
+            
+            # Clean up temp_extract_dir if it exists
+            if temp_extract_dir and os.path.exists(temp_extract_dir):
+                try:
+                    shutil.rmtree(temp_extract_dir)
+                except Exception as e:
+                    pass
 
             el = time.time() - t0
             self._logmsg(f"\n{'=' * 50}", "header")

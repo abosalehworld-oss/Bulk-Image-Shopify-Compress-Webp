@@ -1,124 +1,153 @@
-# 🛒 Shopify Bulk Image Compressor & SEO Optimizer
+# 🛒🌐 Bulk Image SEO Tool — Shopify & WordPress
 
 [اللغة العربية بالأسفل ⬇️](#-النسخة-العربية)
 
 ## 📋 Overview
-An advanced Python GUI tool specifically designed for Shopify store owners and SEO specialists. This tool automates the entire image optimization pipeline, saving hundreds of hours of manual work:
 
-1. **📥 Bulk Downloading**: Reads your exported Shopify CSV and downloads all store images.
-2. **🧠 SEO Intelligence (Auto-renaming & Alt-Text)**: It analyzes product names, removes noise words (e.g., edp, ml, decant), and generates 100% SEO-friendly filenames (hyphenated, lowercase). It also automatically crafts highly descriptive Alt Text.
-3. **🗜️ WebP Compression**: Converts all image formats to WebP and smartly resizes massive images (down to 2000px). It hits the "golden size" (80-150KB) to dramatically improve your Largest Contentful Paint (LCP) performance without noticeable quality loss.
-4. **📦 Direct Images & ZIP/RAR Support**: Don't have a CSV? No problem. Feed the tool single images or entire ZIP/RAR archives. It will automatically extract them, use the folder/file names as product titles, and apply the exact same SEO and compression logic.
-5. **📄 Ready-to-Import CSV**: Generates a `products_seo_optimized.csv` file that you can directly import back into Shopify to update your store with the new WebP images and optimized Alt Texts.
+An advanced Python GUI tool for **Shopify** store owners and **WordPress/WooCommerce** merchants. Automates the entire image SEO optimization pipeline — no API required for WordPress:
+
+| Feature | Shopify | WordPress |
+|---|---|---|
+| Read CSV | ✅ Shopify CSV | ✅ WooCommerce CSV |
+| Download Images | ✅ Auto-download | ➖ Manual / Local files |
+| Compress → WebP | ✅ | ✅ |
+| SEO Filename | ✅ | ✅ |
+| Alt Text | ✅ | ✅ Reference file for manual copy |
+| Export CSV | ✅ `products_seo_optimized.csv` | ✅ `products_wp_optimized.csv` |
+| Upload to Store | ✅ Shopify API (optional) | ❌ Manual (by design for safety) |
+| Direct Images/ZIP | ✅ | ✅ |
 
 ---
 
 ## 🖥️ How to Run
 
 ### Quick Start (Windows):
-Double-click on `تشغيل_الأداة.bat` to launch the GUI instantly! ✅
+Double-click `تشغيل_الأداة.bat` ✅
 
 ### Via Command Line:
 ```bash
-python shopify_gui.py
+py shopify_gui.py
 ```
 
 ---
 
 ## ⚙️ Requirements (One-time setup)
 
-1. **Install Python**: Download from [python.org](https://www.python.org/downloads/) (Make sure to check "Add Python to PATH" during installation).
-2. **Install Dependencies**: Open Command Prompt and run:
+1. **Python 3.8+** from [python.org](https://www.python.org/downloads/) — check **"Add Python to PATH"**
+2. **Install dependencies:**
 ```bash
 pip install requests Pillow tqdm rarfile
 ```
-*(Note: To extract RAR files, you must have UnRAR or WinRAR installed on your system. ZIP extraction is natively supported).*
+> RAR extraction requires WinRAR or UnRAR on your system. ZIP is natively supported.
 
 ---
 
 ## 🎯 GUI Guide
 
-### 1: Operation Mode
-- **📥🗜️ Download & Compress (Default)**: Downloads images from Shopify and compresses them with SEO rules.
-- **📥 Download Only**: Only downloads the images if you want to compress them externally.
-- **🗜️ Compress Only**: Apply SEO rules and compress images you already have on your machine.
+The GUI has **two tabs** at the top:
 
-### 2: Input Source
-- **Shopify CSV**: Use this if you exported your store products to a CSV file.
-- **Direct Images / Archive (ZIP/RAR)**: Use this to process raw image files or archives directly.
+### 🛒 Shopify Tab
+- **Download + Compress**: Reads Shopify CSV → downloads all images → SEO-optimizes → compresses to WebP
+- **Download Only**: Downloads images for external processing
+- **Compress Only**: Compresses images already on your machine
+- **Input**: Shopify CSV export OR direct images/ZIP/RAR
+- **Output**: Compressed WebP images + `products_seo_optimized.csv` (ready to import into Shopify)
 
-### 3: Save Locations
-Choose the folders where downloaded and optimized (compressed) images will be saved.
-
-### 4: Settings
-- **Quality**: Adjust WebP compression quality (85% recommended).
-- **Workers**: Number of parallel downloads/processes (10 recommended).
+### 🌐 WordPress Tab *(No API — 100% local)*
+- **Input**: WooCommerce CSV export OR direct images/ZIP/RAR
+- **Processing**: SEO renaming + WebP compression (80-200 KB target)
+- **Output**:
+  - 📁 `wp_compressed_images/` — WebP images with SEO filenames
+  - 📄 `products_wp_optimized.csv` — WooCommerce import-ready CSV
+  - 📋 `wp_alt_text_reference.csv` — Alt text table for manual copy
+  - 🌐 `wp_alt_text_reference.html` — Beautiful HTML table (click to copy alt text)
+  - 📊 `wp_seo_optimization_log.csv` — Detailed optimization log
+  - 📝 `wp_report.txt` — Summary report
 
 ---
 
-## 📁 Core Project Files
-- `shopify_gui.py`: The interactive GUI.
-- `shopify_image_downloader.py`: The core engine for downloading, processing, and exporting.
-- `seo_helpers.py`: The "brain" behind the SEO rules, filename filtering, and Alt-Text generation.
-- `PROJECT_ARCHITECTURE.md`: Technical documentation for developers and AI assistants.
+## 📁 Project Files
 
-***
+### Core — Shopify
+| File | Purpose |
+|---|---|
+| `shopify_gui.py` | Main GUI (Shopify + WordPress tabs) |
+| `shopify_image_downloader.py` | Shopify engine: CSV parser, downloader, compressor, uploader |
+| `seo_helpers.py` | Shopify SEO: filenames, alt text, compression engine |
 
-# 🛒 النسخة العربية (Arabic Version)
+### Core — WordPress *(New — Standalone)*
+| File | Purpose |
+|---|---|
+| `wordpress_image_processor.py` | WordPress engine: WooCommerce CSV parser, compressor, exporters |
+| `wordpress_seo_helpers.py` | WordPress SEO: general-purpose filenames & alt text (60-90 chars) |
+
+### Config & Docs
+| File | Purpose |
+|---|---|
+| `requirements.txt` | Python dependencies |
+| `تشغيل_الأداة.bat` | Windows launcher |
+| `PROJECT_ARCHITECTURE.md` | Technical docs for developers & AI |
+
+---
+
+## 📊 SEO Standards Applied
+
+### Shopify Images
+- Filenames: `brand-perfume-name-descriptor.webp`
+- Alt text: < 125 characters (Shopify limit)
+- Size: 80–150 KB target
+- Max dimension: 2000px
+
+### WordPress Images
+- Filenames: `product-name-slug-main-product-image.webp`
+- Alt text: **60–90 characters** (WordPress/Yoast/RankMath optimum)
+- Size: 80–200 KB target
+- Max dimension: 2048px
+- Format: WebP always
+
+---
+
+*
+
+# 🛒🌐 النسخة العربية
 
 ## 📋 نظرة عامة
-أداة بايثون بواجهة رسومية متطورة مصممة خصيصاً لخبراء الـ SEO وأصحاب متاجر شوبيفاي. تقوم الأداة بأتمتة مهام تحسين الصور بالكامل لتوفير مئات الساعات من العمل اليدوي:
 
-1. **📥 تحميل الصور بالجملة**: من خلال قراءة ملف CSV المصدر من شوبيفاي وتحميل جميع صور المتجر.
-2. **🧠 ذكاء الـ SEO (تسمية احترافية و Alt-Text)**: الأداة تُحلل أسماء المنتجات، تحذف الكلمات المزعجة (Noise words مثل edp, ml)، وتولد مسميات ملفات متوافقة 100% مع الـ SEO. كما تستخرج نصوص بديلة (Alt Text) جذابة ومناسبة.
-3. **🗜️ ضغط وتحويل إلى WebP**: تحويل جميع صيغ الصور إلى WebP، وتصغير الأبعاد الكبيرة جداً. لتصل إلى الحجم المثالي (بين 80-150 كيلوبايت) لرفع تقييم سرعة تحميل موقعك (LCP).
-4. **📦 دعم الصور الفردية وملفات الـ (ZIP/RAR)**: تتيح لك إدخال صور فردية أو رفع ملفات مضغوطة بالكامل لتقوم الأداة بفك ضغطها وتطبيق جميع قواعد الـ SEO عليها بدون الحاجة لملف CSV!
-5. **📄 تصدير CSV جاهز للرفع**: يتم توليد ملف `products_seo_optimized.csv` جديد وجاهز للإدخال (Import) مباشرة في متجرك لتحديث الصور والـ Alt Text.
+أداة بايثون بواجهة رسومية لـ **شوبيفاي** و**ووردبريس/ووكومرس** — بدون API للووردبريس:
 
----
+**الميزات الرئيسية:**
+1. **📥 تحميل الصور** — من ملف CSV شوبيفاي تلقائياً
+2. **🧠 تسمية SEO ذكية** — أسماء ملفات احترافية + Alt Text تلقائي
+3. **🗜️ ضغط WebP** — الحجم المثالي (80-200 KB) بأفضل جودة
+4. **📦 صور مباشرة وZIP/RAR** — بدون الحاجة لملف CSV
+5. **📄 CSV جاهز للاستيراد** — لشوبيفاي وووكومرس
+6. **📋 مرجع Alt Text HTML** — انسخ الـ Alt Text بنقرة لمكتبة الميديا
 
 ## 🖥️ تشغيل الأداة
 
-### الطريقة الأسهل:
-**دوبل كليك على ملف `تشغيل_الأداة.bat`** ← الواجهة هتفتح فورًا ✅
+**الطريقة الأسهل:** دوبل كليك على `تشغيل_الأداة.bat`
 
-### أو من سطر الأوامر:
 ```bash
-python shopify_gui.py
+py shopify_gui.py
 ```
 
----
+## 🎯 الواجهة — تبويبان
 
-## ⚙️ متطلبات التشغيل (مرة واحدة بس)
+### 🛒 تبويب Shopify
+- تحميل + ضغط من CSV شوبيفاي
+- دعم ZIP/RAR وصور مباشرة
+- تصدير CSV محسّن جاهز للرفع
 
-### 1. تثبيت Python
-1. حمّل Python من [python.org/downloads](https://www.python.org/downloads/)
-2. **✅ مهم جدًا:** ضع علامة ✅ على **"Add Python to PATH"** أثناء التثبيت
+### 🌐 تبويب WordPress *(بدون API — على الكمبيوتر فقط)*
+- قراءة CSV ووكومرس أو صور مباشرة
+- ضغط WebP + تسمية SEO
+- تصدير Alt Text كـ CSV + HTML جميل (للنسخ اليدوي في مكتبة الميديا)
+- تصدير CSV محسّن لاستيراد ووكومرس
 
-### 2. تثبيت المكتبات
-افتح Command Prompt واكتب:
+## ⚙️ متطلبات التشغيل
+
 ```bash
 pip install requests Pillow tqdm rarfile
 ```
-*(ملاحظة: لفك ضغط ملفات الـ RAR، ستحتاج لوجود برنامج UnRAR أو WinRAR على نظامك للتوافق التام)*
 
----
-
-## 🎯 الواجهة الرسومية - شرح مبسط
-
-### 🎯 اختيار العملية (Mode)
-- **📥🗜️ تحميل + ضغط**: الخيار الافتراضي - يحمّل الصور من شوبيفاي ويقوم بضغطها وتحسين الـ SEO.
-- **📥 تحميل فقط**: عايز تحمّل الصور وتضغطها بنفسك ببرامج خارجية.
-- **🗜️ ضغط فقط**: عندك صور على جهازك وعايز تطبق عليها الـ SEO وتضغطها.
-
-### 📄 مصدر الإدخال والملفات (Input Source)
-1. **Shopify CSV**: اختر هذا الوضع إذا كان لديك ملف `products.csv` من شوبيفاي.
-2. **Direct Images / Archive (ZIP/RAR)**: اختر هذا الوضع لضغط صور مفردة أو ملف مضغوط.
-
-### 📁 أماكن الحفظ والإعدادات
-- اختر مسار التخزين للصور المحملة وللصور بعد ضغطها.
-- يُنصح بجودة (Quality) **85%** وبعدد عمليات (Workers) **10**.
-
----
-
-> 🛠️ **تم تصميم وتطوير هذه الأداة للوصول إلى المراتب الأولى في نتائج محركات البحث لصور شوبيفاي** 🚀
+> 🛠️ **مصمم للوصول للمراتب الأولى في نتائج محركات البحث — شوبيفاي وووردبريس** 🚀

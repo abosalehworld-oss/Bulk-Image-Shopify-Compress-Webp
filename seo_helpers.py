@@ -47,9 +47,17 @@ TITLE_NOISE = {
     '2023', '2024', '2025', '2026', '2027',
 }
 
-# أوصاف تصف المنتج — مش محتوى الصورة — فمستحيل يكون فيه تخريف
-# لأن المنتج فعلاً perfume decant بغض النظر عن الصورة هي إيه
+# أوصاف عامة تصف ترتيب الصورة — تناسب أي مجال (عطور، إلكترونيات، ملابس، إلخ)
+# للعطور: سيكتشف generate_alt_text() تلقائياً وجود metadata العطور ويضيف لغة عطور
 POSITION_DESCRIPTORS = {
+    1: 'product-image',
+    2: 'detail-view',
+    3: 'gallery-view',
+    4: 'product-showcase',
+}
+
+# أوصاف إضافية للعطور — تُستخدم فقط لو اكتُشفت metadata عطور
+FRAGRANCE_POSITION_DESCRIPTORS = {
     1: 'perfume-decant',
     2: 'fragrance-detail',
     3: 'scent-collection',
@@ -432,9 +440,9 @@ def clean_handle_for_seo(handle, title=''):
 # ═══════════════════════════════════════════════════════════════
 
 def generate_seo_filename(clean_slug, position, total_images,
-                          seo_desc_override=''):
+                          seo_desc_override='', is_fragrance=False):
     """
-    توليد اسم ملف Shopify SEO-friendly.
+    توليد اسم ملف Shopify SEO-friendly — يدعم كل المجالات.
 
     الصيغة: {slug}-{descriptor}.webp
     - كل شيء lowercase
@@ -446,11 +454,14 @@ def generate_seo_filename(clean_slug, position, total_images,
         position         : ترتيب الصورة (1-based)
         total_images     : إجمالي صور المنتج
         seo_desc_override: وصف يدوي اختياري (يتجاهل التلقائي)
+        is_fragrance     : True لو المنتج عطر (يستخدم descriptors العطور)
     """
     if seo_desc_override and seo_desc_override.strip():
         desc = _to_slug(seo_desc_override.strip())
     elif total_images == 1:
-        desc = 'perfume-decant'
+        desc = 'perfume-decant' if is_fragrance else 'product-image'
+    elif is_fragrance and position in FRAGRANCE_POSITION_DESCRIPTORS:
+        desc = FRAGRANCE_POSITION_DESCRIPTORS[position]
     elif position in POSITION_DESCRIPTORS:
         desc = POSITION_DESCRIPTORS[position]
     else:
@@ -468,48 +479,62 @@ def generate_seo_filename(clean_slug, position, total_images,
 def generate_alt_text(brand, perfume_name, position, total_images,
                       metadata=None):
     """
-    توليد Alt Text متوافق مع Shopify SEO 2026.
+    توليد Alt Text متوافق مع Shopify SEO 2026 — لكل المجالات.
 
     القواعد:
       • < 125 حرف (نستهدف < 120 للأمان)
-      • يبدأ بـ Brand + Perfume Name
+      • يبدأ بـ Brand + Product Name
       • يتضمن keyword طبيعي
       • لا يبدأ بـ "image of" أو "picture of"
       • جملة مختلفة لكل صورة
       • لا keyword stuffing
 
+    Auto-detection:
+      • لو فيه metadata عطور (olfactory/scent/notes) → لغة عطور
+      • لو مفيش → لغة عامة تناسب أي صناعة
+
     Args:
-        brand        : اسم البراند
-        perfume_name : اسم العطر
+        brand        : اسم البراند أو البائع
+        perfume_name : اسم المنتج (عطر أو غيره)
         position     : ترتيب الصورة
         total_images : إجمالي الصور
         metadata     : dict: olfactory_family, scent, season,
-                       target_gender, sizes, notes_snippet
+                       target_gender, sizes, notes_snippet,
+                       product_type, tags
     """
     metadata = metadata or {}
 
-    brand = (brand or 'Perfume').strip()
-    perfume = (perfume_name or '').strip()
-    product = f'{brand} {perfume}'.strip() if perfume else brand
+    brand   = (brand or '').strip()
+    product_name = (perfume_name or '').strip()
+    product = f'{brand} {product_name}'.strip() if product_name else brand
+    if not product:
+        product = 'Product'
 
     # ── بيانات سياقية ──
     olfactory = metadata.get('olfactory_family', '') or ''
-    scent = metadata.get('scent', '') or ''
-    season = metadata.get('season', '') or ''
-    gender = metadata.get('target_gender', '') or ''
-    sizes = metadata.get('sizes', '') or ''
-    notes = metadata.get('notes_snippet', '') or ''
+    scent     = metadata.get('scent', '') or ''
+    season    = metadata.get('season', '') or ''
+    gender    = metadata.get('target_gender', '') or ''
+    sizes     = metadata.get('sizes', '') or ''
+    notes     = metadata.get('notes_snippet', '') or ''
+    tags      = metadata.get('tags', '') or ''
+    body_snippet = metadata.get('body_snippet', '') or ''
 
-    # وصف رائحة مختصر (أول 2 عائلات فقط)
+    # ── Auto-detect: عطر أم منتج عام؟ ──
+    # لو فيه أي metadata عطور → وضع عطور (backward compatible)
+    is_fragrance = bool(olfactory or scent or notes)
+
+    # وصف الرائحة (أول عائلتين فقط)
     scent_desc = ''
-    families = [
-        f.strip() for f in (olfactory or scent).replace(';', ',').split(',')
-        if f.strip() and not _is_arabic(f.strip())
-    ]
-    if families:
-        scent_desc = ' and '.join(families[:2])
+    if is_fragrance:
+        families = [
+            f.strip() for f in (olfactory or scent).replace(';', ',').split(',')
+            if f.strip() and not _is_arabic(f.strip())
+        ]
+        if families:
+            scent_desc = ' and '.join(families[:2])
 
-    # مقاسات مختصرة
+    # مقاسات
     size_str = sizes if sizes else '5ml and 10ml'
 
     # جنس
@@ -519,53 +544,106 @@ def generate_alt_text(brand, perfume_name, position, total_images,
     }
     gender_desc = gender_map.get(gender.lower().strip(), '')
 
-    # ── بناء Alt Text حسب الـ position ──
-    if total_images == 1:
-        # صورة واحدة — أكثر ما يمكن من المعلومات
-        parts = [f'{product} perfume decant {size_str}']
-        if scent_desc:
-            parts.append(f'{scent_desc} fragrance')
-        if gender_desc and gender_desc != 'unisex':
-            parts.append(gender_desc)
-        alt = ' - '.join(parts)
+    # أول tag إنجليزي مفيد
+    first_tag = ''
+    if tags:
+        for t in str(tags).replace(';', ',').split(','):
+            t = t.strip()
+            if t and not _is_arabic(t) and len(t) > 2:
+                first_tag = t
+                break
 
-    elif position == 1:
-        # الصورة الرئيسية — البراند + العطر + المقاسات + الرائحة
-        parts = [f'{product} decant {size_str}']
-        if scent_desc:
-            parts.append(f'{scent_desc} fragrance')
-        if gender_desc and gender_desc != 'unisex':
-            parts.append(gender_desc)
-        alt = ' - '.join(parts)
+    # ── بناء Alt Text: وضع العطور ──
+    if is_fragrance:
+        if total_images == 1:
+            parts = [f'{product} perfume decant {size_str}']
+            if scent_desc:
+                parts.append(f'{scent_desc} fragrance')
+            if gender_desc and gender_desc != 'unisex':
+                parts.append(gender_desc)
+            alt = ' - '.join(parts)
 
-    elif position == 2:
-        # تفاصيل الرائحة — النوتات أو العائلة الشمية
-        if notes:
-            alt = f'{product} - {notes[:50].rstrip(",")} scent'
-        elif scent_desc:
-            alt = f'{product} - {scent_desc} fragrance'
+        elif position == 1:
+            parts = [f'{product} decant {size_str}']
+            if scent_desc:
+                parts.append(f'{scent_desc} fragrance')
+            if gender_desc and gender_desc != 'unisex':
+                parts.append(gender_desc)
+            alt = ' - '.join(parts)
+
+        elif position == 2:
+            if notes:
+                alt = f'{product} - {notes[:50].rstrip(",")} scent'
+            elif scent_desc:
+                alt = f'{product} - {scent_desc} fragrance'
+            else:
+                alt = f'{product} fragrance'
+
+        elif position == 3:
+            alt = f'{product} - available in {size_str} decants'
+            if gender_desc:
+                alt += f' {gender_desc}'
+
+        elif position == 4:
+            if season:
+                alt = f'{product} - {season} fragrance'
+            elif notes:
+                alt = f'{product} scent profile - {notes[:40].rstrip(",")}'
+            else:
+                alt = f'{product} scent profile'
+            if gender_desc:
+                alt += f' {gender_desc}'
+
         else:
-            alt = f'{product} fragrance'
+            alt = f'{product} perfume {position}'
 
-    elif position == 3:
-        # المقاسات والتوفر
-        alt = f'{product} - available in {size_str} decants'
-        if gender_desc:
-            alt += f' {gender_desc}'
-
-    elif position == 4:
-        # الموسم والجنس
-        if season:
-            alt = f'{product} - {season} fragrance'
-        elif notes:
-            alt = f'{product} scent profile - {notes[:40].rstrip(",")}'
-        else:
-            alt = f'{product} scent profile'
-        if gender_desc:
-            alt += f' {gender_desc}'
-
+    # ── بناء Alt Text: وضع عام (أي مجال) ──
     else:
-        alt = f'{product} perfume {position}'
+        # نبني وصف مساعد من tags أو body_snippet
+        descriptor = first_tag or body_snippet[:40].rstrip(' ,') if body_snippet else ''
+
+        if total_images == 1:
+            if descriptor:
+                alt = f'{product} - {descriptor} - premium quality'
+            else:
+                alt = f'{product} - high quality product'
+
+        elif position == 1:
+            # الصورة الرئيسية — البراند + المنتج
+            if descriptor:
+                alt = f'{product} - {descriptor}'
+            else:
+                alt = f'{product} - featured product'
+
+        elif position == 2:
+            # تفاصيل
+            if descriptor:
+                alt = f'{product} - detailed view - {descriptor}'
+            elif gender_desc:
+                alt = f'{product} - detailed view {gender_desc}'
+            else:
+                alt = f'{product} - detailed product view'
+
+        elif position == 3:
+            # معرض
+            if sizes:
+                alt = f'{product} - available in {sizes}'
+            elif first_tag:
+                alt = f'{product} - {first_tag} collection'
+            else:
+                alt = f'{product} - product gallery'
+
+        elif position == 4:
+            # موسم / زاوية
+            if season:
+                alt = f'{product} - {season} collection'
+            elif descriptor:
+                alt = f'{product} - {descriptor}'
+            else:
+                alt = f'{product} - additional view'
+
+        else:
+            alt = f'{product} - product view {position}'
 
     # ── ضمان < 125 حرف (Shopify limit) ──
     return _truncate_alt(alt, max_chars=120)

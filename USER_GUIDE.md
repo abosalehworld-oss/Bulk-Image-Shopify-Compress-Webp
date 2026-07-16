@@ -5,43 +5,32 @@
 
 ---
 
-## 🚀 قبل أي شيء — التثبيت (مرة واحدة فقط)
+## 🚀 تشغيل الأداة — خطوة واحدة فقط
 
-### الخطوة 1: تثبيت Python
+### 🖱️ دوبل كليك على ملف `تشغيل_الأداة.bat`
 
-1. افتح الرابط: **https://www.python.org/downloads/**
-2. اضغط **"Download Python"** الزر الكبير
-3. شغّل ملف التثبيت
-4. ✅ **مهم جداً:** ضع علامة على **"Add Python to PATH"** قبل ما تضغط Install
-5. اضغط **Install Now**
+**وخلاص — الملف يعمل كل شيء تلقائياً:**
 
-> 💡 للتأكد: افتح Command Prompt واكتب `py --version` — لازم يطلع رقم إصدار
+```
+✅ يفحص إذا كان Python مثبتاً
+✅ لو مش مثبت → يفتح صفحة التحميل تلقائياً
+✅ يثبّت المكتبات المطلوبة تلقائياً (مرة واحدة فقط)
+✅ يشغّل الأداة
+```
 
 ---
 
-### الخطوة 2: تثبيت المكتبات
+### ❓ لو فتح صفحة تحميل Python (مرة واحدة فقط)
 
-1. افتح **Command Prompt** (ابحث عنه في ابدأ)
-2. اكتب الأمر ده واضغط Enter:
+هذا يحدث فقط في **أول مرة** إذا لم يكن Python مثبتاً:
 
-```
-pip install requests Pillow tqdm rarfile
-```
+1. حمّل Python من الصفحة التي فتحت
+2. شغّل ملف التثبيت
+3. ✅ **مهم:** ضع علامة على **"Add Python to PATH"**
+4. اضغط **Install Now**
+5. بعد الانتهاء — **دوبل كليك على `تشغيل_الأداة.bat` مرة ثانية**
 
-3. انتظر لحد ما يخلص (دقيقة تقريباً)
-4. ✅ خلص — مش هتعمله تاني
-
----
-
-### الخطوة 3: تشغيل الأداة
-
-**الطريقة السهلة:**
-> 🖱️ دوبل كليك على ملف `تشغيل_الأداة.bat`
-
-**أو من Command Prompt:**
-```
-py shopify_gui.py
-```
+> 💡 بعد هذه المرة لن تحتاج لأي شيء — الأداة ستفتح مباشرة في كل مرة
 
 ---
 ---
@@ -70,80 +59,65 @@ py shopify_gui.py
 
 **③ اختر الملفات**
 - **Shopify CSV:** اضغط "Choose CSV" واختر ملف الـ CSV اللي صدّرته
-- **Download Folder:** اضغط "Choose" واختر مجلد لحفظ الصور المحملة (مثال: `Desktop/downloaded`)
-- **Compress Folder:** اضغط "Choose" واختر مجلد للصور المضغوطة (مثال: `Desktop/optimized`)
+- **Download Folder:** اضغط "Choose" واختر مجلد لحفظ الصور المحملة
+- **Compress Folder:** اضغط "Choose" واختر مجلد للصور المضغوطة
 
 **④ الإعدادات (اتركها كما هي للمبتدئين)**
 - Quality: **85%** ✅
 - Workers: **10** ✅
 
-**⑤ اضغط START**
-- راقب السجل (Log) — هتشوف التقدم
-- انتظر لحد ما يكتب: **"DONE"** ✅
+**⑤ اضغط START وانتظر DONE ✅**
 
 **⑥ النتائج**
-افتح مجلد الـ Compress وهتلاقي:
 ```
 📁 compressed_images/
 ├── 📁 product-handle-1/
-│   ├── brand-name-product-1-perfume-decant.webp   ← صورة مضغوطة + اسم SEO
-│   ├── brand-name-product-1-fragrance-detail.webp
+│   ├── brand-product-perfume-decant.webp
+│   ├── brand-product-fragrance-detail.webp
 │   └── ...
-├── 📁 product-handle-2/
-└── ...
-📄 products_seo_optimized.csv    ← للاستيراد في شوبيفاي
-📄 seo_optimization_log.csv      ← سجل التحسينات
-📄 report.txt                    ← تقرير
+├── 📄 products_seo_optimized.csv    ← للاستيراد في شوبيفاي
+├── 📄 seo_optimization_log.csv      ← سجل التحسينات
+└── 📄 report.txt                    ← تقرير
 ```
 
 ---
 
 ## 🗜️ السيناريو 2: عندي صور على جهازي (بدون CSV شوبيفاي)
 
-**الهدف:** ضغط صور موجودة على جهازك + تسمية SEO
+**الهدف:** ضغط صور موجودة + تسمية SEO
 
 ### الخطوات:
 
 **① رتّب صورك في مجلدات**
-
 ```
 📁 my_products/
 ├── 📁 tom-ford-tobacco-vanille/
 │   ├── photo1.jpg
-│   ├── photo2.jpg
-│   └── photo3.jpg
+│   └── photo2.jpg
 ├── 📁 xerjoff-naxos/
-│   ├── img1.png
-│   └── img2.png
+│   └── img1.png
 ```
-
-> 💡 اسم المجلد هو اللي هيبني اسم الملف SEO منه
+> 💡 اسم المجلد هو اللي بيبني اسم الملف SEO منه
 
 **② شغّل الأداة**
-1. اضغط تبويب **🛒 Shopify**
-2. في **"Choose Mode"** اختر: `🗜️ Compress Only`
-3. في **"Input Source"** اختر: `Direct Images / Archive (ZIP/RAR)`
-
-**③ اختر الملفات**
-- اضغط **"Choose Images/ZIP"** واختر صورك أو ملف ZIP يحتوي عليها
-
-**④ اضغط START وانتظر DONE ✅**
+1. تبويب **🛒 Shopify** → **"Choose Mode"**: `🗜️ Compress Only`
+2. **"Input Source"**: `Direct Images / Archive (ZIP/RAR)`
+3. اضغط **"Choose Images/ZIP"** واختر الملفات
+4. اضغط **START** ✅
 
 ---
 
 ## 📤 السيناريو 3: رفع الصور المحسّنة على شوبيفاي
 
-**بعد ما تخلص الضغط والتسمية:**
-
 ### طريقة 1: استيراد CSV (الأسهل)
-1. افتح شوبيفاي → **Products** → **Import**
-2. اختر ملف `products_seo_optimized.csv`
-3. ✅ شوبيفاي هيحدّث صور كل المنتجات تلقائياً
+1. شوبيفاي → **Products** → **Import**
+2. اختر `products_seo_optimized.csv`
+3. ✅ شوبيفاي يحدّث كل المنتجات تلقائياً
 
 ### طريقة 2: رفع يدوي
-1. اذهب لكل منتج على شوبيفاي
+1. افتح كل منتج على شوبيفاي
 2. احذف الصور القديمة
-3. ارفع الصور الجديدة (WebP) من مجلد `compressed_images`
+3. ارفع صور WebP الجديدة من مجلد `compressed_images`
 
 ---
 ---
@@ -151,119 +125,84 @@ py shopify_gui.py
 # 🌐 قسم ثاني: ووردبريس / WooCommerce
 
 > ⚠️ **وضع ووردبريس: كل شيء على جهازك — لا رفع تلقائي**
-> المستخدم يرفع الصور يدوياً لمكتبة الميديا للأمان الكامل
+> الرفع يدوي لمكتبة الميديا للأمان الكامل
 
 ---
 
 ## 📦 السيناريو 1: عندي ملف CSV من WooCommerce
 
-**الهدف:** ضغط صور المنتجات + تسمية SEO + تجهيز Alt Text للرفع اليدوي
-
 ### الخطوة 1: تصدير CSV من WooCommerce
+1. لوحة التحكم WordPress → **WooCommerce** → **Products** → **Export**
+2. اضغط **"Generate the CSV"**
+3. احفظ الملف على جهازك
 
-1. افتح لوحة التحكم WordPress
-2. اذهب لـ **WooCommerce** → **Products** → **Export**
-3. اضغط **"Generate the CSV"**
-4. احفظ الملف على جهازك (`products_export.csv`)
-
-### الخطوة 2: ضع صور المنتجات في مجلد
-
-رتّب الصور هكذا (مجلد لكل منتج):
+### الخطوة 2: رتّب صورك في مجلدات
 ```
 📁 product_images/
-├── 📁 iphone-15-pro-max/   ← اسم المجلد = SKU أو اسم المنتج
+├── 📁 iphone-15-pro-max/
 │   ├── front.jpg
-│   ├── back.jpg
-│   └── detail.png
+│   └── back.jpg
 ├── 📁 samsung-galaxy-s24/
 │   └── main.jpg
 ```
 
 ### الخطوة 3: شغّل الأداة
+1. تبويب **🌐 WordPress**
+2. **"Input Source"**: `WooCommerce CSV`
+3. اختر ملف CSV ومجلد الصور ومجلد الحفظ
+4. اضغط **START** وانتظر **Done! ✅**
 
-1. شغّل الأداة → اضغط تبويب **🌐 WordPress**
-2. في **"Input Source"** اختر: `WooCommerce CSV`
-3. اضغط **"Choose WooCommerce CSV"** واختر ملف الـ CSV
-4. في **"Images Folder"** اختر مجلد صورك (`product_images`)
-5. في **"Compressed Folder"** اختر مجلد للحفظ (مثال: `Desktop/wp_ready`)
-6. اضغط **START** وانتظر **"Done! ✅"**
-
-### الخطوة 4: مراجعة النتائج
-
+### الخطوة 4: النتائج
 ```
 📁 wp_ready/
 ├── 📁 iphone-15-pro-max/
 │   ├── iphone-15-pro-max-abc1-main-product-image.webp
 │   ├── iphone-15-pro-max-abc1-detail-view.webp
 │   └── iphone-15-pro-max-abc1-gallery-view.webp
-├── 📄 products_wp_optimized.csv     ← استيراد WooCommerce
-├── 📄 wp_alt_text_reference.csv     ← Alt Text للنسخ
-├── 📄 wp_alt_text_reference.html    ← ← ← الأهم!
-├── 📄 wp_seo_optimization_log.csv   ← سجل تفصيلي
-└── 📄 wp_report.txt                 ← تقرير
+├── 📄 products_wp_optimized.csv       ← استيراد WooCommerce
+├── 📄 wp_alt_text_reference.html      ← ← ← الأهم! افتحه في المتصفح
+├── 📄 wp_alt_text_reference.csv       ← Alt Text جدول
+├── 📄 wp_seo_optimization_log.csv     ← سجل تفصيلي
+└── 📄 wp_report.txt                   ← تقرير
 ```
 
 ---
 
-## 🖼️ السيناريو 2: رفع الصور يدوياً لمكتبة الميديا + نسخ Alt Text
-
-**هذا هو الجزء اليدوي — اتبع بالترتيب:**
+## 🖼️ السيناريو 2: رفع الصور يدوياً لمكتبة الميديا
 
 ### الخطوة 1: افتح ملف Alt Text المرجعي
-
 افتح `wp_alt_text_reference.html` في المتصفح (Chrome / Firefox)
 
-هتشوف جدول جميل هكذا:
-
 ```
-┌──────────────────────────────────────────────────────────┐
-│  📦 iPhone 15 Pro Max 512GB                              │
-├──┬─────────────────────────────────────┬─────────────────┤
-│# │ Image Filename                      │ Alt Text         │
-├──┼─────────────────────────────────────┼─────────────────┤
-│1 │ iphone-15-pro-max-abc1-main.webp    │ iPhone 15 Pro   │ ← اضغط لنسخه
-│  │                                     │ Max - Electronics│
-├──┼─────────────────────────────────────┼─────────────────┤
-│2 │ iphone-15-pro-max-abc1-detail.webp  │ iPhone 15 Pro...│ ← اضغط لنسخه
-└──┴─────────────────────────────────────┴─────────────────┘
+┌──────────────────────────────────────────────────┐
+│  📦 iPhone 15 Pro Max 512GB                      │
+├──┬──────────────────────────────┬────────────────┤
+│ # │ Image Filename              │ Alt Text        │
+├──┼──────────────────────────────┼────────────────┤
+│ 1 │ iphone-...main.webp         │ iPhone 15 Pro.. │ ← اضغط لنسخه
+│ 2 │ iphone-...detail.webp       │ iPhone 15 Pro.. │ ← اضغط لنسخه
+└──┴──────────────────────────────┴────────────────┘
 ```
-
-> 💡 **اضغط على أي Alt Text في الجدول** → ينسخ تلقائياً للـ clipboard
+> 💡 **اضغط على أي Alt Text** → ينسخ تلقائياً
 
 ### الخطوة 2: ارفع الصور لمكتبة الميديا
+1. WordPress → **Media** → **Add New**
+2. ارفع الصور WebP
+3. لكل صورة: افتحها → **"Alt Text"** → الصق → **Save**
 
-1. افتح WordPress → **Media** → **Add New**
-2. ارفع صور المنتج الأول (WebP) من مجلد `wp_ready`
-3. بعد رفع كل صورة:
-   - اضغط عليها في مكتبة الميديا
-   - في **"Alt Text"** الصق الـ Alt Text من الملف المرجعي
-   - اضغط **Save**
+### الخطوة 3: ربط الصور بالمنتجات
 
-### الخطوة 3: ربط الصور بالمنتجات (3 طرق)
+**الطريقة أ — استيراد CSV:**
+- WooCommerce → **Products** → **Import** → اختر `products_wp_optimized.csv`
 
-**الطريقة أ — استيراد CSV (الأسهل):**
-1. WooCommerce → **Products** → **Import**
-2. اختر `products_wp_optimized.csv`
-3. اضغط **"Run the importer"**
-4. ✅ الصور هتتربط تلقائياً
-
-**الطريقة ب — يدوياً لكل منتج:**
-1. افتح المنتج في WordPress
-2. في **"Product image"** اختر الصورة الرئيسية من مكتبة الميديا
-3. في **"Product gallery"** أضف باقي الصور
-4. اضغط **Update**
+**الطريقة ب — يدوياً:**
+- افتح المنتج → **Product image** / **Product gallery** → اختر من مكتبة الميديا
 
 ---
 
-## 🎯 السيناريو 3: عندي صور فقط (بدون CSV WooCommerce)
-
-**مناسب لو مش عندك CSV أو عايز تضغط صور بسرعة:**
-
-1. شغّل الأداة → تبويب **🌐 WordPress**
-2. اختر: `Direct Images / Archive (ZIP/RAR)`
-3. اضغط **"Choose Images/ZIP"** واختر ملفاتك
-4. اختر مجلد الحفظ
-5. اضغط **START** ✅
+## 🎯 السيناريو 3: عندي صور فقط (بدون CSV)
+1. تبويب **🌐 WordPress** → `Direct Images / Archive (ZIP/RAR)`
+2. اختر ملفاتك → اضغط **START** ✅
 
 ---
 ---
@@ -275,12 +214,12 @@ py shopify_gui.py
 | القيمة | النتيجة | متى تستخدمها |
 |---|---|---|
 | **95%** | جودة ممتازة، حجم أكبر | منتجات فاخرة، مجوهرات |
-| **85%** ✅ | توازن مثالي (موصى به) | معظم المنتجات |
-| **75%** | ضغط أقوى، جودة مقبولة | لو الحجم مهم جداً |
-| **60%** | ضغط عالي، جودة منخفضة | صور thumbnail صغيرة |
+| **85%** ✅ | توازن مثالي **(موصى به)** | معظم المنتجات |
+| **75%** | ضغط أقوى | لو الحجم مهم جداً |
+| **60%** | ضغط عالي | صور thumbnail صغيرة |
 
 ## Workers (عمليات متوازية)
-- **10** = الافتراضي، مناسب لمعظم الأجهزة ✅
+- **10** ✅ = الافتراضي، مناسب لمعظم الأجهزة
 - **5** = لو جهازك قديم أو الإنترنت بطيء
 - **20** = لو عندك جهاز قوي وإنترنت سريع
 
@@ -288,39 +227,39 @@ py shopify_gui.py
 
 # ❓ مشاكل شائعة وحلولها
 
-| المشكلة | السبب | الحل |
-|---|---|---|
-| الأداة مش بتفتح | Python مش مثبت | راجع الخطوة 1 |
-| خطأ عند التشغيل | المكتبات مش مثبتة | راجع الخطوة 2 |
-| الصور مش بتتحمل | رابط شوبيفاي انتهى أو مكسور | جرب تحمّل من شوبيفاي مباشرة |
-| ملف CSV مش بيتقرأ | ترميز الملف غير صحيح | احفظ الـ CSV بترميز UTF-8 |
-| ZIP مش بيتفك | ملف RAR يحتاج WinRAR | ثبّت WinRAR أو استخدم ZIP |
-| الصور الجديدة مش ظاهرة على شوبيفاي | Cache | امسح cache المتجر |
+| المشكلة | الحل |
+|---|---|
+| الأداة مش بتفتح | دوبل كليك على `تشغيل_الأداة.bat` مرة أخرى |
+| طلب تحميل Python | حمّله، ✅ اختر "Add to PATH"، ثم شغّل الملف مجدداً |
+| فشل تثبيت المكتبات | كليك يمين على الملف → **Run as Administrator** |
+| ملف CSV مش بيتقرأ | احفظ الـ CSV بترميز **UTF-8** من Excel |
+| ZIP مش بيتفك | استخدم ZIP بدل RAR، أو ثبّت WinRAR |
+| الصور مش ظاهرة على شوبيفاي | امسح الـ cache من إعدادات المتجر |
 
 ---
 
 # 📁 ملخص المخرجات
 
 ## شوبيفاي
-```
-products_seo_optimized.csv     → استورده في شوبيفاي مباشرة
-seo_optimization_log.csv       → سجل: الاسم القديم → الاسم الجديد
-report.txt                     → إحصائيات وملخص
-compressed_images/             → الصور المضغوطة WebP
-```
+| الملف | الوظيفة |
+|---|---|
+| `products_seo_optimized.csv` | استورده في شوبيفاي مباشرة |
+| `seo_optimization_log.csv` | سجل: الاسم القديم ← الاسم الجديد + Alt Text |
+| `report.txt` | إحصائيات وملخص |
+| `compressed_images/` | الصور المضغوطة WebP |
 
 ## ووردبريس
-```
-products_wp_optimized.csv      → استورده في WooCommerce
-wp_alt_text_reference.html     → افتحه في المتصفح وانسخ Alt Text
-wp_alt_text_reference.csv      → نفس البيانات بصيغة جدول
-wp_seo_optimization_log.csv    → سجل تفصيلي لكل صورة
-wp_report.txt                  → إحصائيات وملخص
-wp_compressed_images/          → الصور المضغوطة WebP
-```
+| الملف | الوظيفة |
+|---|---|
+| `products_wp_optimized.csv` | استورده في WooCommerce |
+| `wp_alt_text_reference.html` | **افتحه في المتصفح** — انسخ Alt Text بنقرة |
+| `wp_alt_text_reference.csv` | نفس البيانات بصيغة جدول |
+| `wp_seo_optimization_log.csv` | سجل تفصيلي لكل صورة |
+| `wp_report.txt` | إحصائيات وملخص |
+| `wp_compressed_images/` | الصور المضغوطة WebP |
 
 ---
 
 > 🛠️ **صُمِّمت هذه الأداة لتحسين ترتيب صور منتجاتك في نتائج Google 2026**
 >
-> للدعم الفني: راجع ملف `PROJECT_ARCHITECTURE.md` للمطورين
+> للمطورين: راجع `PROJECT_ARCHITECTURE.md`

@@ -23,7 +23,7 @@ from datetime import datetime
 from urllib.parse import urlparse, unquote
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:
     print("❌ مكتبة Pillow غير مثبتة. شغّل: pip install Pillow")
     sys.exit(1)
@@ -39,6 +39,16 @@ try:
     COMPRESS_ENGINE_AVAILABLE = True
 except ImportError:
     COMPRESS_ENGINE_AVAILABLE = False
+
+try:
+    from video_helpers import (
+        check_ffmpeg, compress_video_seo, generate_video_thumbnail,
+        generate_video_seo_filename, generate_video_thumbnail_filename,
+        generate_video_alt_text, VIDEO_EXTENSIONS
+    )
+    VIDEO_AVAILABLE = check_ffmpeg()
+except ImportError:
+    VIDEO_AVAILABLE = False
 
 # استيراد دوال SEO الخاصة بووردبريس
 from wordpress_seo_helpers import (
@@ -249,7 +259,10 @@ class WordPressImageCompressor:
         self.stats = {
             'processed': 0, 'failed': 0,
             'original_size': 0, 'compressed_size': 0,
-            'converted_webp': 0
+            'converted_webp': 0,
+            'videos_processed': 0, 'videos_failed': 0,
+            'videos_original_size': 0, 'videos_compressed_size': 0,
+            'thumbnails_generated': 0,
         }
         # خريطة SEO: key → [{position, old_name, new_name, alt_text}]
         self.seo_map = {}
@@ -273,6 +286,8 @@ class WordPressImageCompressor:
             os.makedirs(os.path.dirname(dst_path) or '.', exist_ok=True)
             original_size = os.path.getsize(src_path)
             with Image.open(src_path) as img:
+                # تصحيح اتجاه الصورة بناءً على EXIF Orientation tag
+                img = ImageOps.exif_transpose(img)
                 if img.mode == 'RGBA':
                     alpha = img.getchannel('A')
                     if alpha.getextrema() == (255, 255):
@@ -331,7 +346,15 @@ class WordPressImageCompressor:
                 if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.avif'))
             ])
 
-            if not existing_files:
+            # جمع الفيديوهات
+            existing_videos = []
+            if VIDEO_AVAILABLE:
+                existing_videos = sorted([
+                    f for f in os.listdir(src_dir)
+                    if f.lower().endswith(VIDEO_EXTENSIONS)
+                ])
+
+            if not existing_files and not existing_videos:
                 continue
 
             # بيانات SEO
@@ -365,63 +388,114 @@ class WordPressImageCompressor:
                 )
 
                 tasks.append({
-                    'key': key,
-                    'name': name,
-                    'sku': sku,
-                    'position': position,
-                    'src_path': src_path,
-                    'dst_path': dst_path,
-                    'old_name': filename,
-                    'new_name': seo_filename,
-                    'alt_text': alt_text,
+                    'key': key, 'name': name, 'sku': sku,
+                    'position': position, 'src_path': src_path,
+                    'dst_path': dst_path, 'old_name': filename,
+                    'new_name': seo_filename, 'alt_text': alt_text,
+                    'type': 'image',
+                })
+
+            # ── مهام الفيديو ──
+            for vidx, vfilename in enumerate(existing_videos):
+                vid_position = vidx + 1
+                vid_src_path = os.path.join(src_dir, vfilename)
+                vid_seo_filename = generate_video_seo_filename(slug, vid_position, len(existing_videos))
+                vid_dst_dir = os.path.join(self.output_dir, handle_dir)
+                vid_dst_path = os.path.join(vid_dst_dir, vid_seo_filename)
+                vid_alt_text = generate_video_alt_text(
+                    info['product_name'], info['main_category'],
+                    vid_position, len(existing_videos), metadata
+                )
+                thumb_filename = generate_video_thumbnail_filename(slug, vid_position)
+                thumb_path = os.path.join(vid_dst_dir, thumb_filename)
+
+                tasks.append({
+                    'key': key, 'name': name, 'sku': sku,
+                    'position': vid_position, 'src_path': vid_src_path,
+                    'dst_path': vid_dst_path, 'old_name': vfilename,
+                    'new_name': vid_seo_filename, 'alt_text': vid_alt_text,
+                    'type': 'video',
+                    'thumb_path': thumb_path, 'thumb_filename': thumb_filename,
                 })
 
         if not tasks:
-            print(f"{Colors.YELLOW}⚠️ لا توجد صور للضغط{Colors.RESET}")
+            print(f"{Colors.YELLOW}⚠️ لا توجد صور أو فيديوهات للضغط{Colors.RESET}")
             return self.stats
 
         # تنفيذ الضغط
         iterator = tasks
         if tqdm:
-            iterator = tqdm(tasks, desc="🗜️  WP SEO ضغط", unit="صورة",
+            iterator = tqdm(tasks, desc="🗜️  WP SEO ضغط", unit="ملف",
                             bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]')
 
         for task in iterator:
             try:
-                comp_stats = self._compress_single(
-                    task['src_path'], task['dst_path']
-                )
+                if task.get('type') == 'video':
+                    # ── ضغط فيديو ──
+                    vid_stats = compress_video_seo(
+                        task['src_path'], task['dst_path'],
+                        max_dimension=1080, target_quality='balanced'
+                    )
+                    self.stats['videos_original_size'] += vid_stats['original_size']
+                    self.stats['videos_compressed_size'] += vid_stats['compressed_size']
+                    self.stats['videos_processed'] += 1
 
-                self.stats['original_size'] += comp_stats['original_size']
-                self.stats['compressed_size'] += comp_stats['compressed_size']
-                self.stats['processed'] += 1
-                self.stats['converted_webp'] += 1
+                    # توليد Thumbnail
+                    try:
+                        generate_video_thumbnail(task['src_path'], task['thumb_path'])
+                        self.stats['thumbnails_generated'] += 1
+                    except Exception:
+                        pass
 
-                # حفظ في خريطة SEO
-                k = task['key']
-                if k not in self.seo_map:
-                    self.seo_map[k] = []
-                self.seo_map[k].append({
-                    'position': task['position'],
-                    'old_name': task['old_name'],
-                    'new_name': task['new_name'],
-                    'alt_text': task['alt_text'],
-                })
+                    k = task['key']
+                    if k not in self.seo_map:
+                        self.seo_map[k] = []
+                    self.seo_map[k].append({
+                        'position': task['position'],
+                        'old_name': task['old_name'],
+                        'new_name': task['new_name'],
+                        'alt_text': task['alt_text'],
+                        'type': 'video',
+                        'thumbnail': task.get('thumb_filename', ''),
+                    })
 
-                # تسجيل في SEO Logger
-                if seo_logger:
-                    seo_logger.add_entry(
-                        product_name=task['name'],
-                        sku=task['sku'],
-                        position=task['position'],
-                        old_filename=task['old_name'],
-                        new_filename=task['new_name'],
-                        alt_text=task['alt_text'],
-                        compress_stats=comp_stats,
+                else:
+                    # ── ضغط صورة (كالعادة) ──
+                    comp_stats = self._compress_single(
+                        task['src_path'], task['dst_path']
                     )
 
+                    self.stats['original_size'] += comp_stats['original_size']
+                    self.stats['compressed_size'] += comp_stats['compressed_size']
+                    self.stats['processed'] += 1
+                    self.stats['converted_webp'] += 1
+
+                    k = task['key']
+                    if k not in self.seo_map:
+                        self.seo_map[k] = []
+                    self.seo_map[k].append({
+                        'position': task['position'],
+                        'old_name': task['old_name'],
+                        'new_name': task['new_name'],
+                        'alt_text': task['alt_text'],
+                    })
+
+                    if seo_logger:
+                        seo_logger.add_entry(
+                            product_name=task['name'],
+                            sku=task['sku'],
+                            position=task['position'],
+                            old_filename=task['old_name'],
+                            new_filename=task['new_name'],
+                            alt_text=task['alt_text'],
+                            compress_stats=comp_stats,
+                        )
+
             except Exception as e:
-                self.stats['failed'] += 1
+                if task.get('type') == 'video':
+                    self.stats['videos_failed'] += 1
+                else:
+                    self.stats['failed'] += 1
                 self.logger.error(f"فشل ضغط {task['src_path']}: {e}")
 
             if progress_callback:

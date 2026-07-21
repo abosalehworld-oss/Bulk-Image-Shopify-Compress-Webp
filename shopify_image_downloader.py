@@ -35,6 +35,17 @@ try:
 except ImportError:
     SEO_AVAILABLE = False
 
+try:
+    from video_helpers import (
+        check_ffmpeg, compress_video_seo, generate_video_thumbnail,
+        generate_video_seo_filename, generate_video_thumbnail_filename,
+        generate_video_alt_text, is_video_file, is_image_file,
+        classify_media_files, VIDEO_EXTENSIONS, format_duration, format_size
+    )
+    VIDEO_AVAILABLE = check_ffmpeg()
+except ImportError:
+    VIDEO_AVAILABLE = False
+
 # إصلاح ترميز الكونسول على ويندوز لدعم العربي والإيموجي
 if sys.platform == "win32":
     try:
@@ -50,7 +61,7 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:
     print("❌ مكتبة Pillow غير مثبتة. شغّل: pip install Pillow")
     sys.exit(1)
@@ -492,7 +503,10 @@ class ImageCompressor:
         self.stats = {
             'processed': 0, 'failed': 0,
             'original_size': 0, 'compressed_size': 0,
-            'converted_webp': 0
+            'converted_webp': 0,
+            'videos_processed': 0, 'videos_failed': 0,
+            'videos_original_size': 0, 'videos_compressed_size': 0,
+            'thumbnails_generated': 0,
         }
         # خريطة SEO: handle → [{position, old_name, new_name, alt_text}]
         self.seo_map = {}
@@ -567,29 +581,33 @@ class ImageCompressor:
                 if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.avif'))
             ])
 
-            if not existing_files:
+            # جمع الفيديوهات الموجودة في المجلد
+            existing_videos = []
+            if VIDEO_AVAILABLE:
+                existing_videos = sorted([
+                    f for f in os.listdir(src_dir)
+                    if f.lower().endswith(VIDEO_EXTENSIONS)
+                ])
+
+            if not existing_files and not existing_videos:
                 continue
 
-            # استخراج بيانات SEO — build_unique_slug يحتفظ بـ variant markers (edp/parfum/50ml)
-            # لضمان عدم تكرار أسماء الملفات بين منتجين مختلفين بنفس العطر
+            # استخراج بيانات SEO
             title = product.get('title', '') or handle
             vendor = product.get('vendor', '') or ''
             slug = build_unique_slug(handle, title)
             brand, perfume = extract_brand_and_perfume(handle, title, vendor)
             total_imgs = len(existing_files)
 
-            # بناء metadata لـ alt text — تنظيف sizes من قيم زبالة
+            # بناء metadata لـ alt text
             sizes_list = product.get('sizes', [])
-            # إزالة "Default Title" وأي قيمة مش مقاس حقيقي
             clean_sizes = [
                 s for s in sizes_list
                 if s and s.lower() not in ('default title', 'default', 'title', '')
                 and not s.lower().startswith('default')
             ]
             sizes_str = ', '.join(clean_sizes) if clean_sizes else ''
-            notes_snippet = ''
-            if SEO_AVAILABLE:
-                notes_snippet = _extract_notes_snippet(product.get('body_html', ''))
+            notes_snippet = _extract_notes_snippet(product.get('body_html', '')) if SEO_AVAILABLE else ''
 
             metadata = {
                 'olfactory_family': product.get('olfactory_family', ''),
@@ -603,27 +621,46 @@ class ImageCompressor:
             for idx, filename in enumerate(existing_files):
                 position = idx + 1
                 src_path = os.path.join(src_dir, filename)
-
-                # توليد اسم SEO
                 seo_filename = generate_seo_filename(slug, position, total_imgs)
                 dst_dir = os.path.join(self.output_dir, handle_dir)
+                os.makedirs(dst_dir, exist_ok=True)
                 dst_path = os.path.join(dst_dir, seo_filename)
-
-                # توليد alt text
                 alt_text = generate_alt_text(brand, perfume, position, total_imgs, metadata)
 
                 tasks.append({
+                    'handle': handle, 'position': position, 'src_path': src_path,
+                    'dst_path': dst_path, 'old_name': filename, 'new_name': seo_filename,
+                    'alt_text': alt_text, 'type': 'image'
+                })
+
+            # ── مهام الفيديو ──
+            for vidx, vfilename in enumerate(existing_videos):
+                vid_position = vidx + 1
+                vid_src_path = os.path.join(src_dir, vfilename)
+                vid_seo_filename = generate_video_seo_filename(slug, vid_position, len(existing_videos))
+                vid_dst_dir = os.path.join(self.output_dir, handle_dir)
+                os.makedirs(vid_dst_dir, exist_ok=True)
+                vid_dst_path = os.path.join(vid_dst_dir, vid_seo_filename)
+                vid_alt_text = generate_video_alt_text(brand, perfume, vid_position, len(existing_videos), metadata)
+                # اسم Thumbnail
+                thumb_filename = generate_video_thumbnail_filename(slug, vid_position)
+                thumb_path = os.path.join(vid_dst_dir, thumb_filename)
+
+                tasks.append({
                     'handle': handle,
-                    'position': position,
-                    'src_path': src_path,
-                    'dst_path': dst_path,
-                    'old_name': filename,
-                    'new_name': seo_filename,
-                    'alt_text': alt_text,
+                    'position': vid_position,
+                    'src_path': vid_src_path,
+                    'dst_path': vid_dst_path,
+                    'old_name': vfilename,
+                    'new_name': vid_seo_filename,
+                    'alt_text': vid_alt_text,
+                    'type': 'video',
+                    'thumb_path': thumb_path,
+                    'thumb_filename': thumb_filename,
                 })
 
         if not tasks:
-            print(f"{Colors.YELLOW}⚠️ لا توجد صور للضغط{Colors.RESET}")
+            print(f"{Colors.YELLOW}⚠️ لا توجد صور أو فيديوهات للضغط{Colors.RESET}")
             return self.stats
 
         # تنفيذ الضغط
@@ -711,6 +748,8 @@ class ImageCompressor:
             original_size = os.path.getsize(img_path)
             self.stats['original_size'] += original_size
             with Image.open(img_path) as img:
+                # تصحيح اتجاه الصورة بناءً على EXIF Orientation tag
+                img = ImageOps.exif_transpose(img)
                 if img.mode == 'RGBA':
                     alpha = img.getchannel('A')
                     if alpha.getextrema() == (255, 255):

@@ -19,7 +19,7 @@ import html as html_module
 from io import BytesIO
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps
 except ImportError:
     pass
 
@@ -675,6 +675,10 @@ def compress_image_seo(img_path, output_path,
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
 
     with Image.open(img_path) as img:
+        # تصحيح اتجاه الصورة بناءً على EXIF Orientation tag
+        # الكاميرات والموبايلات تخزن الصورة مع tag يحدد الاتجاه الصحيح
+        # بدون هذا السطر، بعض الصور تظهر مقلوبة أو بالجنب
+        img = ImageOps.exif_transpose(img)
         dimensions_before = img.size
 
         # تحويل وضع الألوان

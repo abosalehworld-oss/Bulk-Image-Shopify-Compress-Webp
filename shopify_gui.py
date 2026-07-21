@@ -22,6 +22,17 @@ import re
 import zipfile
 import shutil
 try:
+    from video_helpers import VIDEO_EXTENSIONS, check_ffmpeg, auto_install_ffmpeg
+    _VIDEO_EXTS = VIDEO_EXTENSIONS
+    _VIDEO_AVAILABLE = check_ffmpeg()
+except ImportError:
+    _VIDEO_EXTS = ('.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v', '.wmv', '.flv')
+    _VIDEO_AVAILABLE = False
+    auto_install_ffmpeg = None
+
+_MEDIA_EXTS = ('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.avif') + _VIDEO_EXTS
+
+try:
     import rarfile
     RAR_AVAILABLE = True
 except ImportError:
@@ -220,6 +231,10 @@ class ShopifyImageGUI:
                   bg=self.ACCENT, fg="white", relief=tk.FLAT, padx=10, pady=3,
                   cursor="hand2", command=self._browse_local,
                   activebackground=self.ACCENT_HOVER).pack(side=tk.RIGHT)
+        tk.Button(self.local_row, text="📁 Choose Folder   اختر مجلد", font=("Segoe UI", 9, "bold"),
+                  bg="#2980b9", fg="white", relief=tk.FLAT, padx=10, pady=3,
+                  cursor="hand2", command=self._browse_local_folder,
+                  activebackground="#3498db").pack(side=tk.RIGHT, padx=(0, 4))
 
         # ═══ 3. مجلدات الحفظ ═══
         self.folders_card = self._card("Save Location   -   مكان الحفظ على جهازك")
@@ -377,8 +392,8 @@ class ShopifyImageGUI:
             self.comp_frame.pack(fill=tk.X, pady=3)
 
     def _browse_local(self):
-        files = filedialog.askopenfilenames(title="Choose Images or ZIP/RAR Archive",
-                                            filetypes=[("Images & Archives", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.zip *.rar"), ("All", "*.*")])
+        files = filedialog.askopenfilenames(title="Choose Media or ZIP/RAR Archive",
+                                            filetypes=[("Media & Archives", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.mp4 *.mov *.avi *.mkv *.webm *.m4v *.zip *.rar"), ("All", "*.*")])
         if files:
             self.local_files = list(files)
             if len(self.local_files) == 1:
@@ -390,6 +405,30 @@ class ShopifyImageGUI:
             base = os.path.dirname(self.local_files[0])
             if not self.compress_folder.get():
                 self.compress_folder.set(os.path.join(base, "compressed_images"))
+
+    def _browse_local_folder(self):
+        """اختيار مجلد كامل يحتوي صور أو مجلدات منتجات فرعية."""
+        folder = filedialog.askdirectory(title="Choose Images Folder   اختر مجلد الصور")
+        if not folder:
+            return
+        files = []
+        for root, dirs, fnames in os.walk(folder):
+            for f in fnames:
+                if f.lower().endswith(_MEDIA_EXTS):
+                    files.append(os.path.join(root, f))
+        if files:
+            self.local_files = files
+            n_img = sum(1 for f in files if f.lower().endswith(('.jpg','.jpeg','.png','.webp','.bmp','.tiff','.avif')))
+            n_vid = len(files) - n_img
+            lbl = f"Folder: {os.path.basename(folder)} ({n_img} images"
+            if n_vid > 0:
+                lbl += f", {n_vid} videos"
+            lbl += ")"
+            self.local_lbl.config(text=lbl)
+            if not self.compress_folder.get():
+                self.compress_folder.set(os.path.join(os.path.dirname(folder), "compressed_images"))
+        else:
+            messagebox.showinfo("Info", "No media found in this folder!\n!لا توجد ملفات في هذا المجلد")
 
     def _browse_csv(self):
         p = filedialog.askopenfilename(title="Choose CSV File",
@@ -528,10 +567,10 @@ class ShopifyImageGUI:
                                 self._logmsg(f"Error extracting RAR: {e}", "error")
                         else:
                             self._logmsg("RAR support not installed. Please pip install rarfile and have UnRAR in PATH.", "error")
-                    elif ext in ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'avif']:
-                        # Create a folder for the image to act as the handle
-                        base_name = os.path.splitext(os.path.basename(fpath))[0]
-                        safe_handle = re.sub(r'[<>:"/\\|?*]', '_', base_name).strip('. ') or 'unknown'
+                    elif ext in ['jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'avif'] or ('.' + ext) in _VIDEO_EXTS:
+                        # تجميع الصور والفيديوهات حسب مجلد المصدر
+                        src_dir_name = os.path.basename(os.path.dirname(fpath))
+                        safe_handle = re.sub(r'[<>:"/\\|?*]', '_', src_dir_name).strip('. ') or 'direct_images'
                         target_dir = os.path.join(temp_extract_dir, safe_handle)
                         os.makedirs(target_dir, exist_ok=True)
                         shutil.copy2(fpath, os.path.join(target_dir, os.path.basename(fpath)))
@@ -543,9 +582,10 @@ class ShopifyImageGUI:
                     if rel_dir == '.':
                         continue
                     
-                    # Ensure we have images
+                    # Ensure we have images or videos
                     imgs = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.avif'))]
-                    if not imgs:
+                    vids = [f for f in files if f.lower().endswith(_VIDEO_EXTS)]
+                    if not imgs and not vids:
                         continue
                         
                     parts = rel_dir.replace('\\', '/').split('/')
@@ -567,13 +607,14 @@ class ShopifyImageGUI:
                             'images': []
                         }
                     total_imgs += len(imgs)
+                    total_imgs += len(vids)
                     
                 if not products:
-                    self._logmsg("ERROR: No valid images found in input!   لم يتم العثور على صور صحيحة!", "error")
+                    self._logmsg("ERROR: No valid media found in input!   لم يتم العثور على ملفات!", "error")
                     self._finish(False)
                     return
                     
-                self._logmsg(f"Found {len(products)} handles/folders, {total_imgs} images", "success")
+                self._logmsg(f"Found {len(products)} handles/folders, {total_imgs} media files", "success")
                 self._set_pbar(10)
 
             if self.should_stop:
@@ -653,6 +694,22 @@ class ShopifyImageGUI:
                 self._logmsg("\n" + "=" * 50, "header")
                 self._logmsg(f"SEO Compressing (quality: {self.quality.get()}%)...   ضغط + تحسين SEO...", "header")
                 self._set_status("SEO Compressing...   جاري الضغط + SEO...")
+
+                # تثبيت FFmpeg تلقائي لو فيه فيديوهات و FFmpeg مش موجود
+                if auto_install_ffmpeg and not check_ffmpeg():
+                    # فحص هل فيه فيديوهات في المدخلات
+                    has_videos = False
+                    if os.path.exists(src):
+                        for r, d, fls in os.walk(src):
+                            if any(f.lower().endswith(_VIDEO_EXTS) for f in fls):
+                                has_videos = True
+                                break
+                    if has_videos:
+                        self._logmsg("⛬️  FFmpeg not found — auto-installing...", "info")
+                        ok = auto_install_ffmpeg(progress_callback=lambda m: self._logmsg(m, "info"))
+                        if ok:
+                            global _VIDEO_AVAILABLE
+                            _VIDEO_AVAILABLE = True
 
                 compressor = ImageCompressor(input_dir=src, output_dir=comp_dir,
                                              quality=self.quality.get())
@@ -869,6 +926,10 @@ class ShopifyImageGUI:
                   bg=self.ACCENT, fg="white", relief=tk.FLAT, padx=10, pady=3,
                   cursor="hand2", command=self._wp_browse_local,
                   activebackground=self.ACCENT_HOVER).pack(side=tk.RIGHT)
+        tk.Button(self.wp_local_row, text="📁 Choose Folder", font=("Segoe UI", 9, "bold"),
+                  bg="#2980b9", fg="white", relief=tk.FLAT, padx=10, pady=3,
+                  cursor="hand2", command=self._wp_browse_local_folder,
+                  activebackground="#3498db").pack(side=tk.RIGHT, padx=(0, 4))
 
         # ═══ 2. مجلدات الحفظ ═══
         c2 = self._wp_card("Save Location   -   مكان الحفظ")
@@ -1005,8 +1066,8 @@ class ShopifyImageGUI:
                 self.wp_compress_folder.set(os.path.join(base, "wp_compressed_images"))
 
     def _wp_browse_local(self):
-        files = filedialog.askopenfilenames(title="Choose Images or Archive",
-                                            filetypes=[("Images & Archives", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.zip *.rar"), ("All", "*.*")])
+        files = filedialog.askopenfilenames(title="Choose Media or Archive",
+                                            filetypes=[("Media & Archives", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.mp4 *.mov *.avi *.mkv *.webm *.m4v *.zip *.rar"), ("All", "*.*")])
         if files:
             self.wp_local_files = list(files)
             if len(self.wp_local_files) == 1:
@@ -1016,6 +1077,30 @@ class ShopifyImageGUI:
             base = os.path.dirname(self.wp_local_files[0])
             if not self.wp_compress_folder.get():
                 self.wp_compress_folder.set(os.path.join(base, "wp_compressed_images"))
+
+    def _wp_browse_local_folder(self):
+        """اختيار مجلد كامل يحتوي صور لووردبريس."""
+        folder = filedialog.askdirectory(title="Choose Images Folder")
+        if not folder:
+            return
+        files = []
+        for root, dirs, fnames in os.walk(folder):
+            for f in fnames:
+                if f.lower().endswith(_MEDIA_EXTS):
+                    files.append(os.path.join(root, f))
+        if files:
+            self.wp_local_files = files
+            n_img = sum(1 for f in files if f.lower().endswith(('.jpg','.jpeg','.png','.webp','.bmp','.tiff','.avif')))
+            n_vid = len(files) - n_img
+            lbl = f"Folder: {os.path.basename(folder)} ({n_img} images"
+            if n_vid > 0:
+                lbl += f", {n_vid} videos"
+            lbl += ")"
+            self.wp_local_lbl.config(text=lbl)
+            if not self.wp_compress_folder.get():
+                self.wp_compress_folder.set(os.path.join(os.path.dirname(folder), "wp_compressed_images"))
+        else:
+            messagebox.showinfo("Info", "No media found in this folder!")
 
     def _wp_browse_input(self):
         p = filedialog.askdirectory(title="Choose Images Folder")
@@ -1130,9 +1215,10 @@ class ShopifyImageGUI:
                                 r.extractall(temp_extract_dir)
                         except Exception as e:
                             self._wp_logmsg(f"Error: {e}", "error")
-                    elif ext in ('jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'avif'):
-                        base_name = os.path.splitext(os.path.basename(fpath))[0]
-                        safe = re.sub(r'[<>:"/\\|?*]', '_', base_name).strip('. ') or 'unknown'
+                    elif ext in ('jpg', 'jpeg', 'png', 'webp', 'bmp', 'tiff', 'avif') or ('.' + ext) in _VIDEO_EXTS:
+                        # تجميع الصور والفيديوهات حسب مجلد المصدر
+                        src_dir_name = os.path.basename(os.path.dirname(fpath))
+                        safe = re.sub(r'[<>:"/\\|?*]', '_', src_dir_name).strip('. ') or 'direct_images'
                         target = os.path.join(temp_extract_dir, safe)
                         os.makedirs(target, exist_ok=True)
                         shutil.copy2(fpath, os.path.join(target, os.path.basename(fpath)))
@@ -1143,7 +1229,8 @@ class ShopifyImageGUI:
                     if rel == '.':
                         continue
                     imgs = [f for f in files if f.lower().endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.avif'))]
-                    if not imgs:
+                    vids = [f for f in files if f.lower().endswith(_VIDEO_EXTS)]
+                    if not imgs and not vids:
                         continue
                     handle = rel.replace('\\', '/').split('/')[0]
                     if handle not in products:
@@ -1154,7 +1241,7 @@ class ShopifyImageGUI:
                         }
 
                 if not products:
-                    self._wp_logmsg("No valid images found!", "error")
+                    self._wp_logmsg("No valid media found!", "error")
                     self._wp_finish(False)
                     return
 
@@ -1169,6 +1256,21 @@ class ShopifyImageGUI:
             self._wp_logmsg("\n" + "=" * 50, "header")
             self._wp_logmsg(f"WordPress SEO Compressing (quality: {self.wp_quality.get()}%)...", "header")
             self._wp_set_status("SEO Compressing...")
+
+            # تثبيت FFmpeg تلقائي لو فيه فيديوهات
+            if auto_install_ffmpeg and not check_ffmpeg():
+                has_videos = False
+                if os.path.exists(input_dir):
+                    for r, d, fls in os.walk(input_dir):
+                        if any(f.lower().endswith(_VIDEO_EXTS) for f in fls):
+                            has_videos = True
+                            break
+                if has_videos:
+                    self._wp_logmsg("⛬️  FFmpeg not found — auto-installing...", "info")
+                    ok = auto_install_ffmpeg(progress_callback=lambda m: self._wp_logmsg(m, "info"))
+                    if ok:
+                        global _VIDEO_AVAILABLE
+                        _VIDEO_AVAILABLE = True
 
             csv_dir = os.path.dirname(self.wp_csv_path.get()) if self.wp_input_source.get() == "csv" else comp_dir
             seo_log_path = os.path.join(csv_dir, 'wp_seo_optimization_log.csv')
